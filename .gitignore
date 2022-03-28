@@ -1,0 +1,6 @@
+/reqh.venv/
+*.code-workspace
+*.DS_Store
+Thumbs.db
+/__pycache__/
+/.vscode/
