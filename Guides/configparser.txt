@@ -1,0 +1,6 @@
+https://habr.com/ru/post/485236/
+https://habr.com/ru/post/119405/
+https://python-scripts.com/configparser-python-example
+https://docs.python.org/3/library/configparser.html
+https://www.awesomeandrew.ru/2021/03/03/от-новичка-в-эксперты-пишем-файл-конфи/
+
