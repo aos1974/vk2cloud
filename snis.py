@@ -30,9 +30,26 @@ class snisApplication(apps.Application):
             return run_status
         
         # обновляем из параметров запуска конфигурацию программы
-        # --count, кол-во фотографий для загрузки
+        self.__update_snis_config(namespace)
 
         return run_status
+    
+    # обновление из параметров запуска конфигурации программы
+    def __update_snis_config(self, namespace: argparse.Namespace):
+
+        # --count, кол-во фотографий для загрузки
+        if len(namespace.count) > 0:
+            self.update_config('Main', 'Count', namespace.count)
+        # --source, социальная сеть для загрузки
+        if len(namespace.source) > 0:
+            self.update_config('Main', 'SocialNetwork', namespace.source)
+        # --id, id (имя) пользователя соцсети
+        if len(namespace.id) > 0:
+            # проверяем наличии группы параметров конфигурации
+            if namespace.source() not in self.config.sections():
+
+        return True
+
 
 # end class snisApplication
 
@@ -46,7 +63,8 @@ def createParser():
     # --count, кол-во фотографий для загрузки
     # --id, id (имя) пользователя соцсети
     parser.add_argument('--file', type=str, default=INI_FILE, help='имя ini-файла с параметрами программы (по умолчанию snis.ini)')
-    parser.add_argument('--count', type=str, default=5, help='кол-во фотографий для загрузки (по умолчанию 5)')
+    parser.add_argument('--count', type=str, help='кол-во фотографий для загрузки (по умолчанию 5)')
+    parser.add_argument('--source', type=str, help='социальная сеть (по умолчанию VK)')
     parser.add_argument('--id', type=str, default='', help='id (имя) пользователя соцсети')
 
     return parser
