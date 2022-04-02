@@ -1,0 +1,3 @@
+https://docs.python.org/3/library/argparse.html
+https://pymotw.com/2/argparse/
+https://habr.com/ru/company/ruvds/blog/440654/
