@@ -3,9 +3,13 @@
 # Основной модуль программы
 #
 
+from lib2to3.pgen2 import token
+import os
 import sys
+from urllib import response
 import apps
 import argparse
+import requests
 
 from socials import SocialNetwork
 
@@ -17,7 +21,7 @@ from socials import SocialNetwork
 INI_FILE = 'snis.ini'
 # параметры ini файла
 INI_SECTIONS = {'Main': 'Main', 'VK': 'VK', 'Yandex': 'YA'}
-MAIN_SETTINGS = {'Social': 'SocialNetwork', 'Cloud': 'CloudDisk', 'Count': 'Count'}
+MAIN_SETTINGS = {'Social': 'SocialNetwork', 'Cloud': 'CloudDisk', 'Count': 'Count', 'Folder': 'DownloadFolder', 'Log': 'LogFile'}
 VK_SETTINGS = {'URL': 'url', 'Token': 'TokenFile', 'ID': 'UserID'}
 YANDEX_SETTINGS = {'URL': 'url', 'Token': 'TokenFile'}
 
@@ -25,6 +29,25 @@ YANDEX_SETTINGS = {'URL': 'url', 'Token': 'TokenFile'}
 # Глобальные функции модуля
 #
 
+# создаем объект для соцсети Вконтакте
+class SocialVK(SocialNetwork):
+
+    # переопределяем метод получения списка файлов, на специфичный для api Вконтакте
+    def get_photos_list(self, owner_id: str, count: str) -> list:
+        
+        url_list = []
+        # формируем параметры запроса
+        url = self.url + 'photos.get'
+        headers = ''
+        params = {'access_token': self.token, 'owner_id': owner_id, 'album_id': 'profile', 'extended': '1', 'photo_sizes': '1', 'count': count}
+        # запрашиваем списко файлов с изображениями
+        response = self._get_file_list(url, headers=headers, params=params)
+
+        return url_list
+
+# end class SocialVK
+
+# создаем объект нашего приложения 
 class snisApplication(apps.Application):
 
     # объект социальная сеть, для скачивания фотографий
@@ -45,9 +68,13 @@ class snisApplication(apps.Application):
         # инициализируем объект соцсеть для доступа к фотографиям
         if self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Social']) == INI_SECTIONS['VK']:
             # если в параметрах указана соцсеть Вконтаке
-            pass
+            self.socialnetwork = SocialVK(self.config.get(MAIN_SETTINGS['Social'], VK_SETTINGS['URL']), self.config.get(MAIN_SETTINGS['Social'], VK_SETTINGS['Token']))
+            # получаем список файлов для загрузки
+            response = self.socialnetwork.get_file_list(self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['ID']), self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Count']))
         else:
             run_status = f"Неподдерживаемая соцсеть {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Social'])}"
+            return run_status
+
 
         return run_status
     
@@ -67,8 +94,6 @@ class snisApplication(apps.Application):
                 self.update_config(namespace.source.upper(), 'UserID', namespace.id)
 
         return True
-
-
 # end class snisApplication
 
 # функция инициализации объекта парсинга командной строки
