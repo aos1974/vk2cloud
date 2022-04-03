@@ -61,7 +61,7 @@ class SocialNetwork:
         return response
 
     # функция скачивания файла по ссылке, не проверяет корректность переданного пути для сохранения
-    def download_file(self, url: str, headers: str, params: str, filename: str) -> requests.Response:
+    def _download_file(self, url: str, headers: str, params: str, filename: str) -> requests.Response:
 
         # обращаемся по указанному url
         response = requests.get(url, headers=headers, params=params)

@@ -3,7 +3,6 @@
 # Основной модуль программы
 #
 
-from lib2to3.pgen2 import token
 import os
 import sys
 from urllib import response
@@ -33,17 +32,62 @@ YANDEX_SETTINGS = {'URL': 'url', 'Token': 'TokenFile'}
 class SocialVK(SocialNetwork):
 
     # переопределяем метод получения списка файлов, на специфичный для api Вконтакте
-    def get_photos_list(self, owner_id: str, count: str) -> list:
+    def get_photos_list(self, owner_id: str, count: str) -> dict:
         
-        url_list = []
+        url_list = {}
+        url_list['count'] = 0
+        url_list['img_list'] = []
         # формируем параметры запроса
         url = self.url + 'photos.get'
         headers = ''
-        params = {'access_token': self.token, 'owner_id': owner_id, 'album_id': 'profile', 'extended': '1', 'photo_sizes': '1', 'count': count}
+        params = {'access_token': self.token, 'owner_id': owner_id, 'album_id': 'profile', 'extended': '1', 'photo_sizes': '1', 'v': '5.131'}
         # запрашиваем списко файлов с изображениями
         response = self._get_file_list(url, headers=headers, params=params)
+        # проверяем результат выполнения запроса
+        if response.status_code != 200:
+            return url_list
+        # проверяем ответ api.vk на ошибки
+        if 'error' in response.json():
+            return url_list
+        # обрабатываем список полученных файлов
+        url_dict = response.json()['response']
+        # если значение count не указано (пустое), то скачиваем все фотографии
+        if len(count) == 0:
+            cnt = url_dict.get('count')
+        else:
+            # если фотографий в альбоме меньше чем указано кол-во, то скачиваем все сколько есть 
+            if int(count) > url_dict.get('count'):
+                cnt = url_dict.get('count')
+            else:
+                cnt = int(count)
+        # отбираем ссылки на фотографии кол-вом count, с максимальным разрешением
+        for img_url in url_dict.get('items'):
+            rev_url_list = list(reversed(img_url.get('sizes')))
+            rev_url_dict = dict(rev_url_list[0])
+            url_list['img_list'].append(rev_url_dict)
+            url_list['img_list'][url_list['count']]['likes'] = img_url['likes']['count']
+            url_list['count'] += 1
+            if url_list['count'] == cnt:
+                break
 
         return url_list
+    
+    # функция скачивания изображений из профиля ВКонтакте
+    def download_photos(self, photos_list: dict, path: str) -> bool:
+
+        headers = ''
+        params = {'access_token': self.token, 'v': '5.131'}
+        # проходим по всем ссылкам из списка
+        for photo in photos_list['img_list']:
+            url = photo['url']
+            filename = photo['url'].split('/')
+            filename = str(photo['likes']) + '-' + filename[len(filename)-1].strip()
+            filename = os.path.join(path, filename)
+            if filename.find('?') > 0:
+                filename = filename[0:filename.find('?')]
+            response = self._download_file(url, headers, params, filename)
+
+        return True
 
 # end class SocialVK
 
@@ -68,13 +112,19 @@ class snisApplication(apps.Application):
         # инициализируем объект соцсеть для доступа к фотографиям
         if self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Social']) == INI_SECTIONS['VK']:
             # если в параметрах указана соцсеть Вконтаке
-            self.socialnetwork = SocialVK(self.config.get(MAIN_SETTINGS['Social'], VK_SETTINGS['URL']), self.config.get(MAIN_SETTINGS['Social'], VK_SETTINGS['Token']))
+            self.socialnetwork = SocialVK(self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['URL']), self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['Token']))
             # получаем список файлов для загрузки
-            response = self.socialnetwork.get_file_list(self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['ID']), self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Count']))
+            photos_list = self.socialnetwork.get_photos_list(self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['ID']), self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Count']))
         else:
             run_status = f"Неподдерживаемая соцсеть {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Social'])}"
             return run_status
-
+        # проверяем каталог на ПК для загрузки фотографий, если нет то он создается
+        folder = self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Folder'])
+        self.socialnetwork.check_path(folder)
+        # сохраняем изображения на локальный диск
+        if not self.socialnetwork.download_photos(photos_list, folder):
+            run_status = f'Невозможно сохранить изображения во временный каталог {os.path.join(os.getcwd(), folder)}'
+            return run_status
 
         return run_status
     
