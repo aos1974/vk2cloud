@@ -4,6 +4,6 @@
 Thumbs.db
 /__pycache__/
 /.vscode/
-vk.token
+*.token
 /tmp/
 

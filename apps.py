@@ -56,7 +56,7 @@ class Application:
             self.config[section] = {setting: value}
         else:
             # проверяем наличие параметра в секции
-            if setting not in self.config.set:
+            if setting not in self.config[section].keys():
                 # создаем параметр со значением
                 self.config.set[section] = {setting: value}
             else:
