@@ -1,5 +1,7 @@
 argparser
+colorama
 configparser
+datetime
 os
 requests
 sys

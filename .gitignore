@@ -6,4 +6,4 @@ Thumbs.db
 /.vscode/
 *.token
 /tmp/
-
+*.log

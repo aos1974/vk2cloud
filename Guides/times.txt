@@ -1,0 +1,2 @@
+https://www.defpython.ru/kak_v_python_poluczit_tekusczuu_datu_i_vremya
+https://pythonru.com/primery/kak-ispolzovat-modul-datetime-v-python

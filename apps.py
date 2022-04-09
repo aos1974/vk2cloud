@@ -5,6 +5,10 @@
 
 import configparser
 import os
+import sys
+
+import abstract
+from abstract import AbstractObject, LogFileObject
 
 #
 # Определение глобальных переменных и констант
@@ -15,7 +19,7 @@ import os
 #
 
 # класс основного приложения
-class Application:
+class Application(AbstractObject):
 
     # конфигурационные параметры приложения
     config: configparser.ConfigParser
@@ -23,6 +27,11 @@ class Application:
     # функция инициализация класса
     def __init__(self, inifile: str) -> None:
         
+        # вызываем конструктор родительского класса
+        super().__init__()
+        # инициализируем объект для вывода сообщений
+        if self.log_file == None:
+            self.log_file = LogFileObject()
         # инициализируем параметры приложения
         self.config = configparser.ConfigParser()
         # загружаем параметры приложения из файла, если задано имя файла
@@ -30,6 +39,7 @@ class Application:
             self.load_ini(inifile)
         else:
             self.update_config('STATUS', 'LOAD_INI', 'FAILED')
+            self.printlog(abstract.ERROR, 'Не указано имя ini файла для загрузки параметров прораммы!')
 
         return None
 
@@ -41,8 +51,12 @@ class Application:
             # загружаем параметры из файла
             self.config.read(inifile)
             self.update_config('STATUS', 'LOAD_INI', 'OK')
+            self.printlog(abstract.STATUS, f'Параметры программы загружены из файла {inifile}!')
         else:
             self.update_config('STATUS', 'LOAD_INI', 'FAILED')
+            self.printlog(abstract.ERROR, f'Не найден файл параметров программы {inifile}!')
+            # если не удалось загрузить параметры, то работа программы прекращается
+            sys.exit()
             return False
 
         return True

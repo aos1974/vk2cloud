@@ -1,0 +1,7 @@
+https://chel-center.ru/python-yfc/2021/10/24/rabota-s-fajlami-v-python/
+https://chel-center.ru/python-yfc/2021/04/18/chtenie-i-zapis-fajlov-v-python/
+https://pythonru.com/osnovy/rabota-s-fajlami-v-python-s-pomoshhju-modulja-os#:~:text=Для%20получения%20текущего%20рабочего%20каталога,Юникоде%2C%20представляющую%20текущий%20рабочий%20каталог
+https://www.yuripetrov.ru/edu/python/ch_08_01.html
+https://docs-python.ru/tutorial/osnovnye-vstroennye-tipy-python/tip-dannyh-file-object-fajly-potoki/
+https://pythonworld.ru/tipy-dannyx-v-python/fajly-rabota-s-fajlami.html
+https://stackoverflow.com/questions/24501462/what-type-are-file-objects-in-python

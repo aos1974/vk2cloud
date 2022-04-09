@@ -1,0 +1,5 @@
+https://dev.vk.com/api/getting-started
+https://dev.vk.com/method/users.get
+https://dev.vk.com/method/photos.get#Параметры
+приложение (удалить)
+https://vk.com/editapp?id=8124217&section=options

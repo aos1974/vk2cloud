@@ -3,13 +3,17 @@
 # Основной модуль программы
 #
 
+from datetime import datetime
 import os
+from pprint import pprint
 import sys
 from urllib import response
 import apps
 import argparse
 import requests
 
+import abstract
+from abstract import LogFileObject
 from clouds import CloudStorage
 from socials import SocialNetwork
 
@@ -45,6 +49,9 @@ class SocialVK(SocialNetwork):
         response = requests.get(url, headers=headers, params=params)
         # проверяем результат выполнения запроса
         if response.status_code != 200:
+            self.printlog(abstract.ERROR, 'Запрос данных пользователя завершился с ошибкой!')
+            self.printlog(abstract.ERROR, f'URL: {url}')
+            self.printlog(abstract.ERROR, f'STATUS CODE: {response.status_code}')
             return user
         # если запрос выполнен успешно
         user = response.json()['response'][0]
@@ -65,9 +72,14 @@ class SocialVK(SocialNetwork):
         response = self._get_file_list(url, headers=headers, params=params)
         # проверяем результат выполнения запроса
         if response.status_code != 200:
+            self.printlog(abstract.ERROR, 'Запрос списка фотографий завершился с ошибкой!')
+            self.printlog(abstract.ERROR, f'URL: {url}')
+            self.printlog(abstract.ERROR, f'STATUS CODE: {response.status_code}')
             return url_list
         # проверяем ответ api.vk на ошибки
         if 'error' in response.json():
+            self.printlog(abstract.ERROR, 'Ответ на запрос фотографий вернулся с ошибкой')
+            self.printlog(abstract.ERROR, 'Код ошибки: ' + str(response.json()['error']['error_code']) + ', Текст ошибки: ' + response.json()['error']['error_msg'])
             return url_list
         # обрабатываем список полученных файлов
         url_dict = response.json()['response']
@@ -81,12 +93,14 @@ class SocialVK(SocialNetwork):
             else:
                 cnt = int(count)
         # отбираем ссылки на фотографии кол-вом count, с максимальным разрешением
+        self.printlog(abstract.OK, 'Получены ссылки на загрузку фотографий:')
         for img_url in url_dict.get('items'):
             rev_url_list = list(reversed(img_url.get('sizes')))
             rev_url_dict = dict(rev_url_list[0])
             url_list['img_list'].append(rev_url_dict)
             url_list['img_list'][url_list['count']]['likes'] = img_url['likes']['count']
             url_list['count'] += 1
+            self.printlog(abstract.INFO, rev_url_dict.get('url'))
             if url_list['count'] == cnt:
                 break
 
@@ -106,6 +120,14 @@ class SocialVK(SocialNetwork):
             if filename.find('?') > 0:
                 filename = filename[0:filename.find('?')]
             response = self._download_file(url, headers, params, filename)
+            # если были ошибки при загрузке фотографии
+            if response.status_code != 200:
+                self.printlog(abstract.ERROR, 'Загрузка фотографии завершилась с ошибкой!')
+                self.printlog(abstract.ERROR, f'URL: {url}')
+                self.printlog(abstract.ERROR, f'STATUS CODE: {response.status_code}')
+                self.printlog(abstract.INFO, 'Работа программы завершена!')
+                sys.exit()
+            self.printlog(abstract.INFO, f'Файл {filename} загружен.')
 
         return True
 
@@ -133,13 +155,16 @@ class YandexCloud(CloudStorage):
         filelist = os.listdir(folder)
         # если папка пустая то загружать ничего не неужно
         if len(filelist) == 0:
+            self.printlog(abstract.INFO, 'Нет файлов для загрузки!')
             return True
         # загружаем файлы в облако
         for f in filelist:
             path_2_file = os.path.join(folder, f)
             if os.path.isfile(path_2_file):
                 if not self._upload_file(upload_folder, path_2_file, headers):
+                    self.printlog(abstract.ERROR, f'Ошибка загрузки файла {path_2_file}')
                     return False
+                self.printlog(abstract.INFO, f'Файл {path_2_file} загружен в облако!')
 
         return True
 
@@ -201,7 +226,8 @@ class YandexCloud(CloudStorage):
         
         # если ошибка при обращении/создании папки на ресурсе 
         if not (response.status_code == 200 or response.status_code == 201):
-            #print(Fore.RED + f'ERROR: ошибка обращения к {url}!')
+            self.printlog(abstract.ERROR, f'Невозможно получить доступ к папке {path} в облачном хранилище!')
+            self.printlog(abstract.ERROR, f'STATUS CODE: {response.status_code}')
             return False
 
         return True
@@ -227,40 +253,56 @@ class snisApplication(apps.Application):
         # обновляем из параметров запуска конфигурацию программы
         self.__update_snis_config(namespace)
 
+        # начинаем вывод логов
+        self.init_log()
+        # выводим информацию о параметрах запуска программы
+        self.about()
+
         # инициализируем объект соцсеть для доступа к фотографиям
         if self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Social']) == INI_SECTIONS['VK']:
             # если в параметрах указана соцсеть Вконтаке
-            self.socialnetwork = SocialVK(self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['URL']), self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['Token']))
+            self.printlog(abstract.INFO, 'Инициализируем подключение к сети ВКонтакте.')
+            self.socialnetwork = SocialVK(self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['URL']), self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['Token']), self.log_file)
             # запрашиваем информацию о пользователе
             user = self.socialnetwork.get_user_id(self.config.get(INI_SECTIONS['VK'], VK_SETTINGS['ID']))
-            # можно вывести информацию о пользователе
-            # print(user.get('fires_name') + ' ' + user.get(''last_name))
+            # информация о пользователе ВКонтакте
+            self.printlog(abstract.INFO, f'UserID: {user.get("id")}, UserName: {user.get("first_name") + " " + user.get("last_name")}')
             # получаем список файлов для загрузки
+            self.printlog(abstract.STATUS, 'Запрашиваем список файлов для загрузки.')
             photos_list = self.socialnetwork.get_photos_list(user.get('id'), self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Count']))
         else:
             run_status = f"Неподдерживаемая соцсеть {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Social'])}"
+            self.printlog(abstract.ERROR, run_status)
             return run_status
         # проверяем каталог на ПК для загрузки фотографий, если нет то он создается
         folder = self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Folder'])
+        self.printlog(abstract.STATUS, f'Загружаем фотографии в папку {folder} на компьютере.')
         self.socialnetwork.check_path(folder)
         # сохраняем изображения на локальный диск
         if not self.socialnetwork.download_photos(photos_list, folder):
             run_status = f'Невозможно сохранить изображения во временный каталог {os.path.join(os.getcwd(), folder)}'
             return run_status
-
+        self.printlog(abstract.OK, 'Фотографии загружены на компьютер.')
         # инициализируем объект облачное хранилище для загрузки фотографий
         if self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Cloud']) == INI_SECTIONS['Yandex']:
             # если в параметрах указан yandex.disk
-            self.cloud = YandexCloud(self.config.get(INI_SECTIONS['Yandex'], VK_SETTINGS['URL']), self.config.get(INI_SECTIONS['Yandex'], VK_SETTINGS['Token']))
+            self.printlog(abstract.STATUS, 'Подключение к yandex.disk')
+            self.cloud = YandexCloud(self.config.get(INI_SECTIONS['Yandex'], VK_SETTINGS['URL']), self.config.get(INI_SECTIONS['Yandex'], VK_SETTINGS['Token']), self.log_file)
         else:
             run_status = f"Неподдерживаемое облачное хранилище {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Cloud'])}"
+            self.printlog(abstract.ERROR, run_status)
             return run_status
         
         # загружаем файлы из папки в облачное хранилище
-
+        self.printlog(abstract.STATUS, f'Загружаем фотографии из папки {folder} в облачное хранилище.')
         if not self.cloud.upload_files(folder):
             run_status = f"Ошибка загрузки файлов в облачное хранилище"
             return run_status
+
+        # Файлы успешно загружены в облако
+        self.printlog(abstract.OK, 'Файлы успешно загружены в облако!')
+        # завершаем вывод логов
+        self.stop_log()
 
         return run_status
     
@@ -278,8 +320,54 @@ class snisApplication(apps.Application):
             # проверяем наличии группы параметров конфигурации
             if namespace.source.upper() in self.config.sections():
                 self.update_config(namespace.source.upper(), 'UserID', namespace.id)
+        # --folder, наименование каталога для временных файлов
+        if len(namespace.folder) > 0:
+            self.update_config(INI_SECTIONS['Main'], MAIN_SETTINGS['Folder'], namespace.folder)
+        # --log, имя log-файла, если не задано и нет в ini-файле, то лог не ведется
+        if len(namespace.log) > 0:
+            self.update_config(INI_SECTIONS['Main'], MAIN_SETTINGS['Log'], namespace.log)
 
         return True
+    
+    # инициализируем вывод сообщений/логгирование
+    def init_log(self) -> None:
+
+        # инициализируем объект для вывода сообщений
+        if self.log_file == None:
+            self.log_file = LogFileObject()
+        # инициализируем вывод сообщений в файл
+        self.log_file.open_log(self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Log']))
+        # выводим сообщение о начале работы программы
+        self.printlog(abstract.INFO, 'Начало работы программы: ' + datetime.now().strftime("%d-%m-%Y %H:%M:%S"))
+
+        return None 
+    
+    # завершаем запись лога
+    def stop_log(self) -> None:
+
+        # выводим сообщение о завершении работы программы
+        self.printlog(abstract.INFO, 'Программа завершила работу: ' + datetime.now().strftime("%d-%m-%Y %H:%M:%S"))
+        # удаляем объект и вызываем его деструктор
+        if self.log_file != None:
+            del self.log_file
+
+        return None
+    
+    # выводим информацию о параметрах запуска программы
+    def about(self) -> None:
+
+        # формируем строку для вывод а информации
+        about_str = f'''Программа запущена со следующими парамертрами:
+        -- {MAIN_SETTINGS['Social']} = {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Social'])}
+        -- {MAIN_SETTINGS['Cloud']} = {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Cloud'])}
+        -- {MAIN_SETTINGS['Count']} = {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Count'])}
+        -- {MAIN_SETTINGS['Folder']} = {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Folder'])}
+        -- {MAIN_SETTINGS['Log']} = {self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Log'])}
+        '''
+        self.printlog(abstract.INFO, about_str)
+
+        return None
+
 # end class snisApplication
 
 # функция инициализации объекта парсинга командной строки
@@ -291,10 +379,14 @@ def createParser():
     # --file, имя ini-файла с параметрами программы (по умолчанию snis.ini)  
     # --count, кол-во фотографий для загрузки
     # --id, id (имя) пользователя соцсети
+    # --folder, наименование каталога для временных файлов и папки в облачном хранилище
+    # --log, имя log-файла, если не задано и нет в ini-файле, то лог не ведется
     parser.add_argument('--file', type=str, default=INI_FILE, help='имя ini-файла с параметрами программы (по умолчанию snis.ini)')
     parser.add_argument('--count', type=str, default= '', help='кол-во фотографий для загрузки (по умолчанию определяется в ini файле)')
     parser.add_argument('--source', type=str, default= '', help='социальная сеть (по умолчанию определяется в ini файле)')
     parser.add_argument('--id', type=str, default='', help='id (имя) пользователя соцсети')
+    parser.add_argument('--folder', type=str, default='tmp', help='имя каталога для временных файлов и папки в облаке')
+    parser.add_argument('--log', type=str, default='', help='имя log-файла, если не задано и нет в ini-файле, то лог не ведется')
 
     return parser
 

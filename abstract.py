@@ -1,8 +1,11 @@
 #
 # Модуль ABSTRACT.PY 
 # определение базового класса для всех объектов проекта
+# определение класса для вывода информации в лог файл
 # 
 
+import colorama
+from colorama import Fore
 from io import TextIOWrapper
 
 #
@@ -40,23 +43,65 @@ class LogFileObject:
 
         return None
     
-    # инициализация файла для записи лога работы
+    # инициализация файла для записи лога
     def open_log(self, filename: str) -> bool:
+
+        # открываем для дозаписи лог-файл
+        self.log_file = open(filename, 'a', encoding='utf-8')
+        # настраиваем внутренние переменные
+        self.log_to_file = True
+        self.log_file_opened = True
+        self.log_file_name = filename
 
         return True
     
     # вывод сообщений о событиях класса
-    def print_log(self, status: str, log_strint: str):
+    def print_log(self, status: str, log_strint: str) -> None:
+
+        # если разрешен вывод на экран
+        if self.log_to_screan:
+            # в зависимости от статуса сообщения оно выводится в цвете
+            if status == ERROR:
+                print(Fore.RED + '', end='')
+            elif status == INFO:
+                print(Fore.BLUE + '', end='')
+            elif status == STATUS:
+                print(Fore.YELLOW + '', end='')
+            elif status == OK:
+                print(Fore.GREEN + '', end='')
+            else:
+                print(Fore.WHITE + '', end='')
+
+            print(status + ' ' + log_strint)
+            # возвращаем цвет сообщений по умолчанию (белый)
+            print(Fore.WHITE + '', end='')
+
+        # если разрешен вывод в файл
+        if self.log_to_file:
+            # если файл открыт, то выводим сообщения в файл
+            if self.log_file_opened:
+                self.log_file.write(status + ' ' + log_strint + '\n')
 
         return None
 
     # закрываем лог файл 
     def close_log(self) -> bool:
 
+        # если файл открыт для записи, то закрываем его
+        if self.log_file_opened:
+            self.log_file.close()
+        # вывод событий в файл выключен
+        self.log_to_file = False
+        self.log_file_opened = False
+        self.log_file_name = ''
+
         return True
     
     # деструктор класса
     def __del__(self) -> None:
+
+        # закрываем открытый файл
+        self.close_log()
 
         return None
 
@@ -69,7 +114,10 @@ class AbstractObject:
     
     # функция инициализации класса
     def __init__(self) -> None:
-        pass
+
+        self.log_file = None
+
+        return None
 
     # функция вывода сообщений
     def printlog(self, status: str, log_string: str) -> None:
@@ -83,6 +131,3 @@ class AbstractObject:
         return None
 
 # end class AbstractObject
-
-f = open('snis.ini', 'r')
-print(type(f))
