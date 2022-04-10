@@ -6,5 +6,6 @@ inputimeout
 json
 os
 requests
+shutil
 sys
 urllib

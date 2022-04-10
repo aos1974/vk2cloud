@@ -6,6 +6,7 @@
 from datetime import datetime
 import json
 import os
+import shutil
 import sys
 from urllib import response
 import argparse
@@ -133,7 +134,7 @@ class SocialVK(SocialNetwork):
                 self.printlog(abstract.ERROR, f'STATUS CODE: {response.status_code}')
                 self.printlog(abstract.INFO, 'Работа программы завершена!')
                 sys.exit()
-            self.printlog(abstract.INFO, f'Файл {filename} загружен.')
+            self.printlog(abstract.INFO, f'Файл {filename} сохраненн.')
 
         return True
 
@@ -377,15 +378,14 @@ class snisApplication(apps.Application):
         answer_list = ['ДА', 'Д', 'YES', 'Y']
         # запрос пользователю с ожиданием ответа 10 сек
         try:
-            answer = inputimeout(prompt=f'Удалить времерную папку {folder} с загруженными фотографиями? [да/Нет]', timeout=10)
+            answer = inputimeout(prompt=f'Удалить времерную папку {folder} с загруженными фотографиями? [да/НЕТ] ', timeout=10)
         except TimeoutOccurred:
             answer = 'Нет'
-        
+            self.printlog(abstract.INFO, 'Сработал автоматический выбор [НЕТ]!')
+        # удаляем каталог, если ответ утвердительный
         if answer.upper() in answer_list:
-            # удаляем каталог
-            pass
-        
-        print(something)
+            shutil.rmtree(folder)
+            self.printlog(abstract.INFO, f'Временный каталог {folder} удален.')
 
         return None
 
