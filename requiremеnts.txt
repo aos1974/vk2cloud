@@ -2,6 +2,9 @@ argparser
 colorama
 configparser
 datetime
+inputimeout
+json
 os
 requests
 sys
+urllib

@@ -4,16 +4,17 @@
 #
 
 from datetime import datetime
+import json
 import os
-from pprint import pprint
 import sys
 from urllib import response
-import apps
 import argparse
 import requests
+from inputimeout import inputimeout, TimeoutOccurred
 
 import abstract
 from abstract import LogFileObject
+import apps
 from clouds import CloudStorage
 from socials import SocialNetwork
 
@@ -28,6 +29,8 @@ INI_SECTIONS = {'Main': 'Main', 'VK': 'VK', 'Yandex': 'YA'}
 MAIN_SETTINGS = {'Social': 'SocialNetwork', 'Cloud': 'CloudDisk', 'Count': 'Count', 'Folder': 'DownloadFolder', 'Log': 'LogFile'}
 VK_SETTINGS = {'URL': 'url', 'Token': 'TokenFile', 'ID': 'UserID'}
 YANDEX_SETTINGS = {'URL': 'url', 'Token': 'TokenFile'}
+# файл для сохранения данных о фотографиях
+JSON_FILE = 'photos.json'
 
 #
 # Глобальные функции модуля
@@ -116,9 +119,12 @@ class SocialVK(SocialNetwork):
             url = photo['url']
             filename = photo['url'].split('/')
             filename = str(photo['likes']) + '-' + filename[len(filename)-1].strip()
-            filename = os.path.join(path, filename)
             if filename.find('?') > 0:
                 filename = filename[0:filename.find('?')]
+            # сохраняем имя файла в словаре
+            photo['filename'] = filename
+            # формируем путь к файлу для загрузки
+            filename = os.path.join(path, filename)
             response = self._download_file(url, headers, params, filename)
             # если были ошибки при загрузке фотографии
             if response.status_code != 200:
@@ -283,6 +289,10 @@ class snisApplication(apps.Application):
             run_status = f'Невозможно сохранить изображения во временный каталог {os.path.join(os.getcwd(), folder)}'
             return run_status
         self.printlog(abstract.OK, 'Фотографии загружены на компьютер.')
+        # сохраняем json файл с информацией о загруженных файлах
+        if not self.save_json(photos_list, folder):
+            run_status = f'Невозможно сохранить json файл во временный каталог {os.path.join(os.getcwd(), folder)}'
+            return run_status
         # инициализируем объект облачное хранилище для загрузки фотографий
         if self.config.get(INI_SECTIONS['Main'], MAIN_SETTINGS['Cloud']) == INI_SECTIONS['Yandex']:
             # если в параметрах указан yandex.disk
@@ -301,6 +311,8 @@ class snisApplication(apps.Application):
 
         # Файлы успешно загружены в облако
         self.printlog(abstract.OK, 'Файлы успешно загружены в облако!')
+        # удаление временной папки с фотографиями на ПК
+        self.delete_local_photos(folder)
         # завершаем вывод логов
         self.stop_log()
 
@@ -329,6 +341,23 @@ class snisApplication(apps.Application):
 
         return True
     
+    # функция сохранения данных о загруженных фотографиях в json файл
+    def save_json(self, photos_list: dict, folder: str) -> bool:
+
+        # фомируем имя json файла
+        filename = os.path.join(folder, JSON_FILE)
+        # формируем json dict для сохранения
+        jlist = []
+        for j in photos_list['img_list']:
+            jlist.append({'file_name': j['filename'], 'size': j['type']})
+        # открываем файл для записи
+        with open(filename, 'w', encoding='utf-8') as jfile:
+            json.dump(jlist, jfile)
+        
+        self.printlog(abstract.OK, f'JSON файл {filename} с информацией о загруженных фотографиях сохранен.')
+
+        return True
+    
     # инициализируем вывод сообщений/логгирование
     def init_log(self) -> None:
 
@@ -342,6 +371,24 @@ class snisApplication(apps.Application):
 
         return None 
     
+    # функция удаления временной папки с фотографиями
+    def delete_local_photos(self, folder) -> None:
+
+        answer_list = ['ДА', 'Д', 'YES', 'Y']
+        # запрос пользователю с ожиданием ответа 10 сек
+        try:
+            answer = inputimeout(prompt=f'Удалить времерную папку {folder} с загруженными фотографиями? [да/Нет]', timeout=10)
+        except TimeoutOccurred:
+            answer = 'Нет'
+        
+        if answer.upper() in answer_list:
+            # удаляем каталог
+            pass
+        
+        print(something)
+
+        return None
+
     # завершаем запись лога
     def stop_log(self) -> None:
 
